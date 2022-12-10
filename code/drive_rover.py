@@ -77,6 +77,10 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
+        #STUDENT EDIT
+        #variable for mainting rover angles from previous iteration
+        self.prev_angles = None
+
 # Initialize our rover 
 Rover = RoverState()
 
@@ -110,6 +114,7 @@ def telemetry(sid, data):
 
             # Execute the perception and decision steps to update the Rover's state
             Rover = perception_step(Rover)
+            Rover.prev_angles = Rover.nav_angles
             Rover = decision_step(Rover)
 
             # Create output images to send to server

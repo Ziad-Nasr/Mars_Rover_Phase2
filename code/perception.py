@@ -93,7 +93,13 @@ def perception_step(Rover):
     # 2) Apply perspective transform
     warped = perspect_transform(Rover.img, src, dest)
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
-    threshold_img = color_thresh(warped, (137, 175, 134))
+    # if pitch is too high ignore image by turning the threshhold up to white
+    thresh = (137,175,134)
+    ignored_img = False
+    if Rover.pitch > 1:
+        ignored_img = True
+        thresh = (255,255,255)
+    threshold_img = color_thresh(warped, thresh)
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
         # Example: Rover.vision_image[:,:,0] = obstacle color-thresholded binary image
         #          Rover.vision_image[:,:,1] = rock_sample color-thresholded binary image
@@ -109,7 +115,11 @@ def perception_step(Rover):
         # Example: Rover.worldmap[obstacle_y_world, obstacle_x_world, 0] += 1
         #          Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
         #          Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
-    Rover.worldmap[ypix_world, xpix_world, 2] += 1 
+    # give more weight to descisions at low roll
+    step = 10
+    if Rover.roll > 1:
+        step = 1
+    Rover.worldmap[ypix_world, xpix_world, 2] += step
     # 8) Convert rover-centric pixel positions to polar coordinates
     dist, angles = to_polar_coords(xpix, ypix)
     # Update Rover pixel distances and angles
@@ -117,4 +127,7 @@ def perception_step(Rover):
         # Rover.nav_angles = rover_centric_angles
     Rover.nav_dists = dist
     Rover.nav_angles = angles
+    #if image was intentionally ignored maintain previous angles to keep robot going as it was
+    if ignored_img:
+        Rover.nav_angles = Rover.prev_angles
     return Rover
