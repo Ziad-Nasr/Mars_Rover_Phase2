@@ -109,6 +109,27 @@ def x_y_to_img(xpix, ypix, mean_dir):
             blank[np.clip(x - i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
     return blank
 
+# This is a color threshholding function
+# That returns 1 if the pixel belongs to a rock
+def thresh_rock(img):
+    # first remove mountain
+    remove_mountain = np.zeros_like(img[:,:,:])
+    rgb_thresh = (100,100,0)
+    above_thresh = (img[:,:,0] > rgb_thresh[0]) \
+                & (img[:,:,1] > rgb_thresh[1]) \
+                & (img[:,:,2] > rgb_thresh[2])
+    for idx, x in np.ndenumerate(remove_mountain):
+        if above_thresh[idx[0], idx[1]] == 1:
+            remove_mountain[idx[0], idx[1]] = img[idx[0], idx[1]]
+    # Then separate between the rock and the ground
+    rgb_thresh = (100,100,50)
+    rock_select = np.zeros_like(remove_mountain[:,:,0])
+    above_thresh = (img[:,:,0] > rgb_thresh[0]) \
+                & (img[:,:,1] > rgb_thresh[1]) \
+                & (img[:,:,2] < rgb_thresh[2])
+    rock_select[above_thresh] = 1
+    return rock_select
+
 # Apply the above functions in succession and update the Rover state accordingly
 def perception_step(Rover):
     # Perform perception steps to update Rover()
@@ -137,6 +158,7 @@ def perception_step(Rover):
         ignored_img = True
         thresh = (255,255,255)
     threshold_img = color_thresh(warped, thresh)
+    threshhold_rock = thresh_rock(warped)
     threshhold_obs = 1 - threshold_img
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
         # Example: Rover.vision_image[:,:,0] = obstacle color-thresholded binary image
@@ -147,9 +169,11 @@ def perception_step(Rover):
     # 5) Convert map image pixel values to rover-centric coords
     xpix, ypix= rover_coords(threshold_img)
     rov_obs_x, rov_obs_y= rover_coords(threshhold_obs)
+    rov_rock_x, rov_rock_y= rover_coords(threshhold_rock)
     # 6) Convert rover-centric pixel values to world coordinates
     xpix_world, ypix_world = pix_to_world(xpix, ypix, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
     obs_x, obs_y = pix_to_world(rov_obs_x, rov_obs_y, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
+    rock_x, rock_y = pix_to_world(rov_rock_x, rov_rock_y, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
 
     # 7) Update Rover worldmap (to be displayed on right side of screen)
         # Example: Rover.worldmap[obstacle_y_world, obstacle_x_world, 0] += 1
@@ -186,8 +210,9 @@ def perception_step(Rover):
         Rover.vision_image[0:half_y,0:half_x, 0] = scale_img(warped[:,:,0], 2)
 
         # show thes Threshholded image on the bottom left
-        Rover.vision_image[half_y:max_y,0:half_x, 2] = scale_img(threshold_img * 255, 2)
         Rover.vision_image[half_y:max_y,0:half_x, 0] = scale_img(threshhold_obs * 255, 2)
+        Rover.vision_image[half_y:max_y,0:half_x, 1] = scale_img(threshhold_rock * 255, 2)
+        Rover.vision_image[half_y:max_y,0:half_x, 2] = scale_img(threshold_img * 255, 2)
 
         # show Rover Coordinates Image and the mean angle on the rightss
         rover_img = scale_img(x_y_to_img(xpix, ypix, np.mean(Rover.nav_angles)), 2)
@@ -195,7 +220,8 @@ def perception_step(Rover):
         Rover.vision_image[:,half_x:half_x+80, 1] = rover_img[:,:,1] 
         Rover.vision_image[:,half_x:half_x+80, 0] = rover_img[:,:,0] 
     else:
-        Rover.vision_image[:,:, 2] = threshold_img * 255
         Rover.vision_image[:,:, 0] = threshhold_obs * 255
+        Rover.vision_image[:,:, 1] = threshhold_rock * 255
+        Rover.vision_image[:,:, 2] = threshold_img * 255
 
     return Rover
