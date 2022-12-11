@@ -84,7 +84,7 @@ def scale_img(img, scale):
     return res
 
 # a function that plots the xpix and ypix of the rover coordinates in an image and shows their mean dir
-def x_y_to_img(xpix, ypix, mean_dir):
+def x_y_to_img(xpix, ypix, Rover):
     # create a blank image
     blank=np.zeros([321,161,3])
     # loop over the x and y values
@@ -94,19 +94,21 @@ def x_y_to_img(xpix, ypix, mean_dir):
         y = int(xpix[idx])
         # color the x and y in the image white
         blank[x,y,:] = 255
-    # turn the mean angle to a vector and scale it to be seen
-    x_rov = 50 * np.cos(mean_dir)
-    y_rov = 50 * np.sin(mean_dir)
-    # turn the mean vector from rover coordinates to image coordinates
-    x = int(160 - y_rov)
-    y = int(x_rov)
-    # plot a square cetnered around the mean vector so the direction can be seen visually
-    for i in range(5):
-        for j in range(5):
-            blank[np.clip(x + i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
-            blank[np.clip(x + i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
-            blank[np.clip(x - i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
-            blank[np.clip(x - i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
+    # turn the mean angle to a vector and scale it to be seen if Rover.nav_angles not None
+    if Rover.nav_angles is not None and len(Rover.nav_angles) > 0:
+        mean_dir = np.mean(Rover.nav_angles)
+        x_rov = 50 * np.cos(mean_dir)
+        y_rov = 50 * np.sin(mean_dir)
+        # turn the mean vector from rover coordinates to image coordinates
+        x = int(160 - y_rov)
+        y = int(x_rov)
+        # plot a square cetnered around the mean vector so the direction can be seen visually
+        for i in range(5):
+            for j in range(5):
+                blank[np.clip(x + i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
+                blank[np.clip(x + i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
+                blank[np.clip(x - i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
+                blank[np.clip(x - i, 0, 320), np.clip(y + j, 0,160), :] = [255, 0,0]
     return blank
 
 # This is a color threshholding function
@@ -135,6 +137,7 @@ def perception_step(Rover):
     # Perform perception steps to update Rover()
     # TODO: 
     # NOTE: camera image is coming to you in Rover.img
+    CLIP_WARP = 100
     # 1) Define source and destination points for perspective transform
     image = Rover.img
     # Remove Part of the warped image to ignore the sky
@@ -148,8 +151,6 @@ def perception_step(Rover):
                   ])
     # 2) Apply perspective transform
     warped = perspect_transform(image, src, dest)
-    # remove top portion of the image to ignore the sky
-    warped[0:100, :, :] = np.zeros_like(warped[0:100, :, :].shape)
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     # if pitch is too high ignore image by turning the threshhold up to white
     thresh = (137,175,134)
@@ -160,6 +161,8 @@ def perception_step(Rover):
     threshold_img = color_thresh(warped, thresh)
     threshhold_rock = thresh_rock(warped)
     threshhold_obs = 1 - threshold_img
+    # Clip the navigable terrain in the upper portions of the photo as it is most likely the sky
+    threshold_img[0:CLIP_WARP,:] = 0 
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
         # Example: Rover.vision_image[:,:,0] = obstacle color-thresholded binary image
         #          Rover.vision_image[:,:,1] = rock_sample color-thresholded binary image
@@ -184,6 +187,7 @@ def perception_step(Rover):
     if Rover.roll > 1:
         step = 1
     Rover.worldmap[ypix_world, xpix_world, 2] += step
+    Rover.worldmap[rock_y, rock_x, 1] += step
     Rover.worldmap[obs_y, obs_x, 0] += step
     # 8) Convert rover-centric pixel positions to polar coordinates
     dist, angles = to_polar_coords(xpix, ypix)
@@ -215,7 +219,7 @@ def perception_step(Rover):
         Rover.vision_image[half_y:max_y,0:half_x, 2] = scale_img(threshold_img * 255, 2)
 
         # show Rover Coordinates Image and the mean angle on the rightss
-        rover_img = scale_img(x_y_to_img(xpix, ypix, np.mean(Rover.nav_angles)), 2)
+        rover_img = scale_img(x_y_to_img(xpix, ypix, Rover), 2)
         Rover.vision_image[:,half_x:half_x+80, 2] = rover_img[:,:,2]
         Rover.vision_image[:,half_x:half_x+80, 1] = rover_img[:,:,1] 
         Rover.vision_image[:,half_x:half_x+80, 0] = rover_img[:,:,0] 
