@@ -12,7 +12,7 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     # Require that each pixel be above all three threshold values in RGB
     # above_thresh will now contain a boolean array with "True"
     # where threshold was met
-    above_thresh = (img[:,:,0] > rgb_thresh[0]) \
+    above_thresh = (img[:, :, 0] > rgb_thresh[0]) \
                 & (img[:,:,1] > rgb_thresh[1]) \
                 & (img[:,:,2] > rgb_thresh[2])
     # Index the array of zeros with the boolean array and set to 1
@@ -132,12 +132,31 @@ def thresh_rock(img):
     rock_select[above_thresh] = 1
     return rock_select
 
+def obs_thresh(img, rgb_thresh=(160, 160, 160)):
+    # Create an array of zeros same xy size as img, but single channel
+    color_select = np.zeros_like(img[:,:,0])
+    # Require that each pixel be above all three threshold values in RGB
+    # above_thresh will now contain a boolean array with "True"
+    # where threshold was met
+    below_thresh = (img[:, :, 0] < rgb_thresh[0]) \
+                & (img[:,:,1] < rgb_thresh[1]) \
+                & (img[:,:,2] < rgb_thresh[2])
+    above_thresh = (img[:, :, 0] > 0) \
+                & (img[:,:,1] > 0) \
+                & (img[:,:,2] > 0)
+    obs = above_thresh & below_thresh
+    # Index the array of zeros with the boolean array and set to 1
+    color_select[obs] = 1
+    # Return the binary image
+    return color_select
+
+
 # Apply the above functions in succession and update the Rover state accordingly
 def perception_step(Rover):
     # Perform perception steps to update Rover()
-    # TODO: 
+    # TODO:
     # NOTE: camera image is coming to you in Rover.img
-    CLIP_WARP = 100
+    CLIP_WARP = 80
     # 1) Define source and destination points for perspective transform
     image = Rover.img
     # Remove Part of the warped image to ignore the sky
@@ -160,7 +179,7 @@ def perception_step(Rover):
         thresh = (255,255,255)
     threshold_img = color_thresh(warped, thresh)
     threshhold_rock = thresh_rock(warped)
-    threshhold_obs = 1 - threshold_img
+    threshhold_obs = obs_thresh(warped, thresh)
     # Clip the navigable terrain in the upper portions of the photo as it is most likely the sky
     threshold_img[0:CLIP_WARP,:] = 0 
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
@@ -170,18 +189,18 @@ def perception_step(Rover):
     # moved to the bottom for debugging mode
 
     # 5) Convert map image pixel values to rover-centric coords
-    xpix, ypix= rover_coords(threshold_img)
-    rov_obs_x, rov_obs_y= rover_coords(threshhold_obs)
-    rov_rock_x, rov_rock_y= rover_coords(threshhold_rock)
+    xpix, ypix = rover_coords(threshold_img)
+    rov_obs_x, rov_obs_y = rover_coords(threshhold_obs)
+    rov_rock_x, rov_rock_y = rover_coords(threshhold_rock)
     # 6) Convert rover-centric pixel values to world coordinates
-    xpix_world, ypix_world = pix_to_world(xpix, ypix, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
+    xpix_world, ypix_world = pix_to_world(xpix, ypix, Rover.pos[0], Rover.pos[1], Rover.yaw, Rover.worldmap.shape[0], dst_size*2)
     obs_x, obs_y = pix_to_world(rov_obs_x, rov_obs_y, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
     rock_x, rock_y = pix_to_world(rov_rock_x, rov_rock_y, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
 
     # 7) Update Rover worldmap (to be displayed on right side of screen)
-        # Example: Rover.worldmap[obstacle_y_world, obstacle_x_world, 0] += 1
-        #          Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
-        #          Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
+    # Example: Rover.worldmap[obstacle_y_world, obstacle_x_world, 0] += 1
+    #          Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
+    #          Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
     # give more weight to descisions at low roll
     step = 10
     if Rover.roll > 1:
@@ -191,15 +210,22 @@ def perception_step(Rover):
     Rover.worldmap[obs_y, obs_x, 0] += step
     # 8) Convert rover-centric pixel positions to polar coordinates
     dist, angles = to_polar_coords(xpix, ypix)
+    rock_dist, rock_angles = to_polar_coords(rock_x, rock_y)
     # Update Rover pixel distances and angles
-        # Rover.nav_dists = rover_centric_pixel_distances
-        # Rover.nav_angles = rover_centric_angles
+    # Rover.nav_dists = rover_centric_pixel_distances
+    # Rover.nav_angles = rover_centric_angles
     Rover.nav_dists = dist
     Rover.nav_angles = angles
-    #if image was intentionally ignored maintain previous angles to keep robot going as it was
+    Rover.rock_dists = dist
+    Rover.rock_angles = angles
+    if 1 in threshhold_rock:
+        Rover.rock_found = True
+    # if image was intentionally ignored maintain previous angles
+    # to keep robot going as it was
     if ignored_img:
         Rover.nav_angles = Rover.prev_angles
-    # if debugging mode is on split the image on the left of the screen to multiple other images
+    # if debugging mode is on split the image on the
+    # left of the screen to multiple other images
     if DEBUGING_MODE:
         # maximum indices in the image on the left
         max_x = Rover.vision_image.shape[1] 
