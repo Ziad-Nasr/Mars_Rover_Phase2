@@ -109,18 +109,8 @@ def decision_step(Rover):
             Rover.rock_lost = True
             Rover.steer = np.clip(np.mean(Rover.rock_angles)*10,-15,15)
         elif not Rover.near_sample:
-            Rover.first_rock = Rover.total_time
-            if Rover.rock_lost:
-                Rover.steer = 0
-                Rover.throttle  = 0
-                Rover.brake  = Rover.brake_set
-                Rover.rock_lost = False
-            else:
-                Rover.steer = -7
-                Rover.brake = 0
-                Rover.throttle = 0
-            if Rover.total_time - Rover.first_rock > 9.0:
-                Rover.mode = "stay"
+            Rover.mode = "stay"
+            Rover.rock_found = False
         if Rover.near_sample:
             Rover.brake = Rover.brake_set
             Rover.throttle = 0
