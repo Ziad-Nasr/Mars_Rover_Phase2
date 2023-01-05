@@ -91,21 +91,19 @@ def decision_step(Rover):
         print(np.mean(Rover.rock_dists))
         print(len(Rover.rock_dists))
         if Rover.rock_found and len(Rover.rock_dists) > 0 and np.mean(Rover.rock_dists) < 220:
-            print(np.mean(Rover.rock_angles))
-            Rover.steer = np.clip(np.min(Rover.rock_angles * 9), -15, 15)
-            Rover.throttle = Rover.throttle_set / 4
+            Rover.steer = np.clip(np.mean(Rover.rock_angles * 180 / np.pi), -15, 15)
+            Rover.throttle = Rover.throttle_set / 2
             Rover.brake = 0
             Rover.prev_mode = Rover.mode
             Rover.mode = "rock"
     # Here we try to move towards a rock. If the rock is close stop moving
     # The Rover will then pickup the rock due to code written at the bottom of the file
     elif Rover.mode == "rock":
-        print("Rock")
-        Rover.throttle = Rover.throttle_set / 4
-        Rover.brake = 0
-        if (Rover.rock_angles.any()):
-            print(np.mean(Rover.rock_angles))
-            Rover.steer = np.clip(np.mean(Rover.rock_angles * 9),-15,15)
+        print("rock")
+        if np.any(Rover.rock_angles):
+            Rover.steer = np.clip(np.mean(Rover.rock_angles) * 10, -15, 15)
+            Rover.throttle = np.clip(np.mean(Rover.rock_dists), 0, Rover.throttle_set / 2) 
+            Rover.brake = 0
         else:
             Rover.mode = Rover.prev_mode
             Rover.rock_found = False
