@@ -205,9 +205,9 @@ def perception_step(Rover):
     step = 10
     if Rover.roll > 1:
         step = 1
-    Rover.worldmap[ypix_world, xpix_world, 2] += step
+    Rover.worldmap[ypix_world, xpix_world, 2] += step * 5
     Rover.worldmap[rock_y, rock_x, 1] += step
-    Rover.worldmap[obs_y, obs_x, 0] += step
+    Rover.worldmap[obs_y, obs_x, 0] += step 
     # 8) Convert rover-centric pixel positions to polar coordinates
     dist, angles = to_polar_coords(xpix, ypix)
     rock_dist, rock_angles = to_polar_coords(rock_x, rock_y)
@@ -216,8 +216,8 @@ def perception_step(Rover):
     # Rover.nav_angles = rover_centric_angles
     Rover.nav_dists = dist
     Rover.nav_angles = angles
-    Rover.rock_dists = dist
-    Rover.rock_angles = angles
+    Rover.rock_dists = rock_dist
+    Rover.rock_angles = rock_angles
     if 1 in threshhold_rock:
         Rover.rock_found = True
     # if image was intentionally ignored maintain previous angles

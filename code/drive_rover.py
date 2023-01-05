@@ -85,6 +85,7 @@ class RoverState():
         self.rock_found = False
         self.prev_mode = None
         self.first_stuck = None
+        self.rock_lost = False
 
 # Initialize our rover 
 Rover = RoverState()
@@ -126,7 +127,6 @@ def telemetry(sid, data):
             out_image_string1, out_image_string2 = create_output_images(Rover)
 
             # The action step!  Send commands to the rover!
- 
             # Don't send both of these, they both trigger the simulator
             # to send back new telemetry so we must only send one
             # back in respose to the current telemetry data.
@@ -214,7 +214,7 @@ if __name__ == '__main__':
         print("Recording this run ...")
     else:
         print("NOT recording this run ...")
-    
+
     # wrap Flask application with socketio's middleware
     app = socketio.Middleware(sio, app)
 
