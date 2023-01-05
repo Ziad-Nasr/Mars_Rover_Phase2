@@ -53,6 +53,8 @@ def decision_step(Rover):
     # It tries to stay a set distance away from the wall
     # It currently only uses proportional control to steer the Rover.
     elif Rover.mode == "stay":
+        if Rover.picking_up:
+            return Rover
         # for debugging purposes show current mode
         print("Stay With Edge")
         # if we have some vision data take a decision
@@ -90,25 +92,35 @@ def decision_step(Rover):
         # so go to rock mode
         print(np.mean(Rover.rock_dists))
         print(len(Rover.rock_dists))
-        if Rover.rock_found and len(Rover.rock_dists) > 0 and np.mean(Rover.rock_dists) < 220:
+        if Rover.rock_found and len(Rover.rock_dists) > 0 and np.mean(Rover.rock_dists) < 170 and np.mean(Rover.rock_angles) > 0:
             print(np.mean(Rover.rock_angles))
-            Rover.steer = np.clip(np.min(Rover.rock_angles * 9), -15, 15)
-            Rover.throttle = Rover.throttle_set / 4
-            Rover.brake = 0
+            Rover.steer = 0
+            Rover.throttle = 0
+            Rover.brake = Rover.brake_set
             Rover.prev_mode = Rover.mode
             Rover.mode = "rock"
     # Here we try to move towards a rock. If the rock is close stop moving
     # The Rover will then pickup the rock due to code written at the bottom of the file
     elif Rover.mode == "rock":
         print("Rock")
-        Rover.throttle = Rover.throttle_set / 4
+        Rover.throttle = Rover.throttle_set / 2
         Rover.brake = 0
         if (Rover.rock_angles.any()):
-            print(np.mean(Rover.rock_angles))
-            Rover.steer = np.clip(np.mean(Rover.rock_angles * 9),-15,15)
-        else:
-            Rover.mode = Rover.prev_mode
-            Rover.rock_found = False
+            Rover.rock_lost = True
+            Rover.steer = np.clip(np.mean(Rover.rock_angles)*10,-15,15)
+        elif not Rover.near_sample:
+            Rover.first_rock = Rover.total_time
+            if Rover.rock_lost:
+                Rover.steer = 0
+                Rover.throttle  = 0
+                Rover.brake  = Rover.brake_set
+                Rover.rock_lost = False
+            else:
+                Rover.steer = -7
+                Rover.brake = 0
+                Rover.throttle = 0
+            if Rover.total_time - Rover.first_rock > 9.0:
+                Rover.mode = "stay"
         if Rover.near_sample:
             Rover.brake = Rover.brake_set
             Rover.throttle = 0
@@ -153,7 +165,7 @@ def decision_step(Rover):
 
     # Regardless of the current mode, if the rover is throlttling and not moving for 9 seconds go to 
     # stuck mode
-    if Rover.throttle > 0 and abs(Rover.vel) < 0.09 and (Rover.mode == "stay" or Rover.mode == "rock") and not Rover.near_sample:
+    if Rover.throttle > 0 and abs(Rover.vel) < 0.09 and Rover.mode == "stay" and Rover.brake == 0:
         # once the rover is stuck start counting seconds
         if Rover.first_stuck is None:
             Rover.first_stuck = Rover.total_time
@@ -165,6 +177,6 @@ def decision_step(Rover):
     # if the rover is near a rock and stopped pickup the rock
     if Rover.near_sample and Rover.vel == 0 and not Rover.picking_up:
         Rover.send_pickup = True
-        Rover.mode = Rover.prev_mode
+        Rover.mode  = "stay"
 
     return Rover

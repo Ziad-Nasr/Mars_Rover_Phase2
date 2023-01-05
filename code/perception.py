@@ -83,6 +83,12 @@ def scale_img(img, scale):
     res = cv2.resize(img, dsize=(int(img.shape[1]/scale), int(img.shape[0]/scale)), interpolation=cv2.INTER_CUBIC)
     return res
 
+# This function ignores far awary obstacles
+def ignoreFar(obs_x, obs_y):
+    dist = np.sqrt(obs_x**2 + obs_y**2) / 10
+    faraway = dist < 8
+    return obs_x[faraway], obs_y[faraway]
+
 # a function that plots the xpix and ypix of the rover coordinates in an image and shows their mean dir
 def x_y_to_img(xpix, ypix, Rover):
     # create a blank image
@@ -195,6 +201,7 @@ def perception_step(Rover):
     # 6) Convert rover-centric pixel values to world coordinates
     xpix_world, ypix_world = pix_to_world(xpix, ypix, Rover.pos[0], Rover.pos[1], Rover.yaw, Rover.worldmap.shape[0], dst_size*2)
     obs_x, obs_y = pix_to_world(rov_obs_x, rov_obs_y, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
+    obs_x, obs_y = ignoreFar(obs_x, obs_y)
     rock_x, rock_y = pix_to_world(rov_rock_x, rov_rock_y, Rover.pos[0], Rover.pos[1], Rover.yaw,Rover.worldmap.shape[0], dst_size*2)
 
     # 7) Update Rover worldmap (to be displayed on right side of screen)
@@ -210,14 +217,12 @@ def perception_step(Rover):
     Rover.worldmap[obs_y, obs_x, 0] += step 
     # 8) Convert rover-centric pixel positions to polar coordinates
     dist, angles = to_polar_coords(xpix, ypix)
-    rock_dist, rock_angles = to_polar_coords(rock_x, rock_y)
+    Rover.rock_dists, Rover.rock_angles = to_polar_coords(rock_x, rock_y)
     # Update Rover pixel distances and angles
     # Rover.nav_dists = rover_centric_pixel_distances
     # Rover.nav_angles = rover_centric_angles
     Rover.nav_dists = dist
     Rover.nav_angles = angles
-    Rover.rock_dists = rock_dist
-    Rover.rock_angles = rock_angles
     if 1 in threshhold_rock:
         Rover.rock_found = True
     # if image was intentionally ignored maintain previous angles

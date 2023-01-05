@@ -86,6 +86,7 @@ class RoverState():
         self.prev_mode = None
         self.first_stuck = None
         self.rock_lost = False
+        self.first_rock = 0
 
 # Initialize our rover 
 Rover = RoverState()
